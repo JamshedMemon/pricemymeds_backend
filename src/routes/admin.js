@@ -9,6 +9,8 @@ const Pharmacy = require('../models/Pharmacy');
 const Price = require('../models/Price');
 const User = require('../models/User');
 const AuditLog = require('../models/AuditLog');
+const Contact = require('../models/Contact');
+const PriceAlert = require('../models/PriceAlert');
 
 // Apply authentication to all admin routes
 router.use(verifyToken);
@@ -567,6 +569,223 @@ router.get('/stats', async (req, res) => {
   } catch (error) {
     console.error('Error fetching stats:', error);
     res.status(500).json({ message: 'Error fetching statistics' });
+  }
+});
+
+// ===== CONTACT MESSAGES MANAGEMENT =====
+
+// GET all contacts (with pagination)
+router.get('/contacts', async (req, res) => {
+  try {
+    const { page = 1, limit = 20, status, search } = req.query;
+    const skip = (page - 1) * limit;
+    
+    const filter = {};
+    if (status) filter.status = status;
+    if (search) {
+      filter.$or = [
+        { name: new RegExp(search, 'i') },
+        { email: new RegExp(search, 'i') },
+        { subject: new RegExp(search, 'i') }
+      ];
+    }
+    
+    const [contacts, total] = await Promise.all([
+      Contact.find(filter)
+        .skip(skip)
+        .limit(parseInt(limit))
+        .sort('-createdAt'),
+      Contact.countDocuments(filter)
+    ]);
+    
+    res.json({
+      contacts,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching contacts:', error);
+    res.status(500).json({ message: 'Error fetching contacts' });
+  }
+});
+
+// GET single contact
+router.get('/contacts/:id', async (req, res) => {
+  try {
+    const contact = await Contact.findById(req.params.id);
+    
+    if (!contact) {
+      return res.status(404).json({ message: 'Contact not found' });
+    }
+    
+    // Mark as read if it was new
+    if (contact.status === 'new') {
+      contact.status = 'read';
+      await contact.save();
+    }
+    
+    res.json(contact);
+  } catch (error) {
+    console.error('Error fetching contact:', error);
+    res.status(500).json({ message: 'Error fetching contact' });
+  }
+});
+
+// PUT update contact status
+router.put('/contacts/:id', async (req, res) => {
+  try {
+    const { status, notes } = req.body;
+    
+    const contact = await Contact.findByIdAndUpdate(
+      req.params.id,
+      { 
+        status,
+        notes,
+        ...(status === 'replied' && { repliedAt: new Date() })
+      },
+      { new: true }
+    );
+    
+    if (!contact) {
+      return res.status(404).json({ message: 'Contact not found' });
+    }
+    
+    await logAction(req, 'contact_update', 'contact', contact._id, { status, notes });
+    
+    res.json(contact);
+  } catch (error) {
+    console.error('Error updating contact:', error);
+    res.status(500).json({ message: 'Error updating contact' });
+  }
+});
+
+// DELETE contact
+router.delete('/contacts/:id', requireRole('admin'), async (req, res) => {
+  try {
+    const contact = await Contact.findByIdAndDelete(req.params.id);
+    
+    if (!contact) {
+      return res.status(404).json({ message: 'Contact not found' });
+    }
+    
+    await logAction(req, 'contact_delete', 'contact', contact._id);
+    
+    res.json({ message: 'Contact deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting contact:', error);
+    res.status(500).json({ message: 'Error deleting contact' });
+  }
+});
+
+// ===== PRICE ALERTS MANAGEMENT =====
+
+// GET all price alerts (with pagination)
+router.get('/price-alerts', async (req, res) => {
+  try {
+    const { page = 1, limit = 20, status, medicationId, search } = req.query;
+    const skip = (page - 1) * limit;
+    
+    const filter = {};
+    if (status) filter.status = status;
+    if (medicationId) filter.medicationId = medicationId;
+    if (search) {
+      filter.$or = [
+        { email: new RegExp(search, 'i') },
+        { medicationName: new RegExp(search, 'i') }
+      ];
+    }
+    
+    const [alerts, total] = await Promise.all([
+      PriceAlert.find(filter)
+        .skip(skip)
+        .limit(parseInt(limit))
+        .sort('-createdAt'),
+      PriceAlert.countDocuments(filter)
+    ]);
+    
+    res.json({
+      alerts,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching price alerts:', error);
+    res.status(500).json({ message: 'Error fetching price alerts' });
+  }
+});
+
+// GET price alerts statistics
+router.get('/price-alerts/stats', async (req, res) => {
+  try {
+    const [total, active, triggered, expired] = await Promise.all([
+      PriceAlert.countDocuments(),
+      PriceAlert.countDocuments({ status: 'active' }),
+      PriceAlert.countDocuments({ status: 'triggered' }),
+      PriceAlert.countDocuments({ status: 'expired' })
+    ]);
+    
+    res.json({
+      total,
+      active,
+      triggered,
+      expired
+    });
+  } catch (error) {
+    console.error('Error fetching alert stats:', error);
+    res.status(500).json({ message: 'Error fetching statistics' });
+  }
+});
+
+// PUT update price alert status
+router.put('/price-alerts/:id', async (req, res) => {
+  try {
+    const { status } = req.body;
+    
+    const alert = await PriceAlert.findByIdAndUpdate(
+      req.params.id,
+      { 
+        status,
+        ...(status === 'triggered' && { triggeredAt: new Date() })
+      },
+      { new: true }
+    );
+    
+    if (!alert) {
+      return res.status(404).json({ message: 'Price alert not found' });
+    }
+    
+    await logAction(req, 'alert_update', 'pricealert', alert._id, { status });
+    
+    res.json(alert);
+  } catch (error) {
+    console.error('Error updating alert:', error);
+    res.status(500).json({ message: 'Error updating alert' });
+  }
+});
+
+// DELETE price alert
+router.delete('/price-alerts/:id', requireRole('admin'), async (req, res) => {
+  try {
+    const alert = await PriceAlert.findByIdAndDelete(req.params.id);
+    
+    if (!alert) {
+      return res.status(404).json({ message: 'Price alert not found' });
+    }
+    
+    await logAction(req, 'alert_delete', 'pricealert', alert._id);
+    
+    res.json({ message: 'Price alert deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting alert:', error);
+    res.status(500).json({ message: 'Error deleting alert' });
   }
 });
 

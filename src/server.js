@@ -56,6 +56,8 @@ app.use('/api/medications', require('./routes/medications'));
 app.use('/api/pharmacies', require('./routes/pharmacies'));
 app.use('/api/prices', require('./routes/prices'));
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api/contact', require('./routes/contact')); // Contact form
+app.use('/api/price-alerts', require('./routes/priceAlerts')); // Price alerts
 app.use('/api/admin/auth', require('./routes/adminAuth')); // Admin auth routes (login, etc.)
 app.use('/api/admin', require('./routes/admin')); // Protected admin routes
 
