@@ -12,9 +12,25 @@ const app = express();
 app.use(helmet());
 app.use(compression());
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://pricemymeds.co.uk', 'https://www.pricemymeds.co.uk']
-    : ['http://localhost:3000', 'http://localhost:3001'],
+  origin: function(origin, callback) {
+    const allowedOrigins = process.env.NODE_ENV === 'production'
+      ? [
+          'https://pricemymeds.co.uk',
+          'https://www.pricemymeds.co.uk',
+          'http://pricemymeds.co.uk',
+          'http://www.pricemymeds.co.uk'
+        ]
+      : ['http://localhost:3000', 'http://localhost:3001'];
+    
+    // Allow requests with no origin (mobile apps, Postman, curl, etc)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    } else {
+      return callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 app.use(express.json());
