@@ -20,7 +20,7 @@ app.use(cors({
           'http://pricemymeds.co.uk',
           'http://www.pricemymeds.co.uk'
         ]
-      : ['http://localhost:3000', 'http://localhost:3001'];
+      : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002'];
     
     // Allow requests with no origin (mobile apps, Postman, curl, etc)
     if (!origin) return callback(null, true);

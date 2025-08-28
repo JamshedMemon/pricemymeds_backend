@@ -108,10 +108,14 @@ router.post('/medications', requireRole('admin'), [
     
     await logAction(req, 'medication_create', 'medication', medication.id, medicationData);
     
-    res.status(201).json(medication);
+    res.status(201).json({ id: medication.id, ...medication.toObject() });
   } catch (error) {
     console.error('Error creating medication:', error);
-    res.status(500).json({ message: 'Error creating medication' });
+    res.status(500).json({ 
+      message: 'Error creating medication',
+      error: error.message || 'Unknown error occurred',
+      ...(process.env.NODE_ENV === 'development' && { details: error })
+    });
   }
 });
 
@@ -439,6 +443,63 @@ router.post('/categories', requireRole('admin'), [
   } catch (error) {
     console.error('Error updating category:', error);
     res.status(500).json({ message: 'Error updating category' });
+  }
+});
+
+// POST add subcategory to a category
+router.post('/categories/:categoryId/subcategories', [
+  body('name').notEmpty().trim()
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    
+    const { categoryId } = req.params;
+    const { name } = req.body;
+    
+    // Generate subcategory ID from name
+    const subcategoryId = name.toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '');
+    
+    // Find the category
+    const category = await Category.findOne({ id: categoryId });
+    
+    if (!category) {
+      return res.status(404).json({ message: 'Category not found' });
+    }
+    
+    // Check if subcategory already exists
+    const existingSubcat = category.subcategories.find(sub => sub.id === subcategoryId);
+    if (existingSubcat) {
+      return res.status(400).json({ message: 'Subcategory already exists' });
+    }
+    
+    // Add new subcategory
+    const newSubcategory = {
+      id: subcategoryId,
+      name: name,
+      categoryId: categoryId,
+      order: category.subcategories.length,
+      active: true
+    };
+    
+    category.subcategories.push(newSubcategory);
+    category.updatedAt = new Date();
+    
+    await category.save();
+    
+    await logAction(req, 'subcategory_create', 'category', category.id, newSubcategory);
+    
+    res.json({ 
+      subcategory: newSubcategory,
+      category: category 
+    });
+  } catch (error) {
+    console.error('Error adding subcategory:', error);
+    res.status(500).json({ message: 'Error adding subcategory' });
   }
 });
 
