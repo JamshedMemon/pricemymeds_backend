@@ -18,7 +18,11 @@ app.use(cors({
           'https://pricemymeds.co.uk',
           'https://www.pricemymeds.co.uk',
           'http://pricemymeds.co.uk',
-          'http://www.pricemymeds.co.uk'
+          'http://www.pricemymeds.co.uk',
+          'https://pricemymeds.uk',
+          'https://www.pricemymeds.uk',
+          'http://pricemymeds.uk',
+          'http://www.pricemymeds.uk'
         ]
       : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002'];
     
