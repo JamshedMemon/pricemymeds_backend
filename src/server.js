@@ -80,12 +80,37 @@ app.use('/api/admin-messages', require('./routes/adminMessages')); // Public end
 app.use('/api/subscriptions', require('./routes/subscriptions')); // Public endpoint for subscribing
 
 // Admin routes (all require authentication)
-app.use('/api/admin/auth', require('./routes/adminAuth')); // Admin auth routes (login, etc.)
-app.use('/api/admin', require('./routes/admin')); // Protected admin routes (includes messages & subscriptions)
+try {
+  app.use('/api/admin/auth', require('./routes/adminAuth')); // Admin auth routes (login, etc.)
+  app.use('/api/admin', require('./routes/admin')); // Protected admin routes (includes messages & subscriptions)
+  console.log('✅ Admin routes loaded successfully');
+} catch (error) {
+  console.error('❌ Error loading admin routes:', error);
+  // Still allow server to start but log the error
+}
 
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+// Debug endpoint to check loaded routes
+app.get('/debug/routes', (req, res) => {
+  const routes = [];
+  app._router.stack.forEach(middleware => {
+    if (middleware.route) {
+      routes.push({
+        path: middleware.route.path,
+        methods: Object.keys(middleware.route.methods)
+      });
+    } else if (middleware.name === 'router') {
+      routes.push({
+        path: middleware.regexp.toString(),
+        type: 'router'
+      });
+    }
+  });
+  res.json({ routes, env: process.env.NODE_ENV });
 });
 
 // Error handling middleware
