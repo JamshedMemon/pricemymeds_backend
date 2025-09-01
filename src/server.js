@@ -62,6 +62,7 @@ app.use('/api/', limiter);
 app.use('/api/auth/', authLimiter);
 
 // Routes
+// Public routes
 app.use('/api/categories', require('./routes/categories'));
 app.use('/api/medications', require('./routes/medications'));
 app.use('/api/pharmacies', require('./routes/pharmacies'));
@@ -70,10 +71,16 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/contact', require('./routes/contact')); // Contact form
 app.use('/api/price-alerts', require('./routes/priceAlerts')); // Price alerts
 app.use('/api/blog', require('./routes/blog')); // Blog posts
+
+// Public endpoints for admin messages and subscriptions (for users)
+app.use('/api/admin-messages', require('./routes/adminMessages')); // Public endpoint for fetching messages
+app.use('/api/subscriptions', require('./routes/subscriptions')); // Public endpoint for subscribing
+
+// Admin routes (all require authentication)
 app.use('/api/admin/auth', require('./routes/adminAuth')); // Admin auth routes (login, etc.)
 app.use('/api/admin', require('./routes/admin')); // Protected admin routes
-app.use('/api/admin-messages', require('./routes/adminMessages')); // Admin messages for medications
-app.use('/api/subscriptions', require('./routes/subscriptions')); // Email subscriptions
+app.use('/api/admin/admin-messages', require('./routes/adminMessages')); // Admin management of messages
+app.use('/api/admin/subscriptions', require('./routes/subscriptions')); // Admin management of subscriptions
 
 // Health check
 app.get('/health', (req, res) => {
