@@ -8,6 +8,9 @@ require('dotenv').config();
 
 const app = express();
 
+// Trust proxy - required for Render and other hosting platforms
+app.set('trust proxy', true);
+
 // CORS configuration
 const corsOptions = {
   origin: function(origin, callback) {
@@ -53,12 +56,19 @@ app.use(express.urlencoded({ extended: true }));
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === 'production' ? 100 : 1000 // More lenient in development
+  max: process.env.NODE_ENV === 'production' ? 100 : 1000, // More lenient in development
+  standardHeaders: true, // Return rate limit info in headers
+  legacyHeaders: false, // Disable X-RateLimit headers
+  // Skip rate limiting in development
+  skip: (req) => process.env.NODE_ENV !== 'production'
 });
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5 // limit auth attempts
+  max: 5, // limit auth attempts
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => process.env.NODE_ENV !== 'production'
 });
 
 app.use('/api/', limiter);
