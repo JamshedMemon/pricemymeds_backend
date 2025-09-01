@@ -55,40 +55,38 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Rate limiting configuration
-// For express-rate-limit v8+, we need to be explicit about proxy trust
-const createRateLimiter = (options = {}) => {
-  if (process.env.NODE_ENV !== 'production') {
-    // No rate limiting in development
-    return (req, res, next) => next();
-  }
-  
-  return rateLimit({
+// Only apply in production with proper configuration for Render
+if (process.env.NODE_ENV === 'production') {
+  const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100,
     standardHeaders: true,
     legacyHeaders: false,
-    // Skip the trust proxy validation since we've set it at the app level
+    // Skip OPTIONS requests for CORS
+    skip: (req) => req.method === 'OPTIONS',
+    // Disable trust proxy validation to avoid crashes
     validate: {
-      trustProxy: false, // Disable the trust proxy validation
+      trustProxy: false,
       xForwardedForHeader: false,
-    },
-    ...options
+    }
   });
-};
 
-const limiter = createRateLimiter({
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests, please try again later.'
-});
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    skipSuccessfulRequests: true,
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip: (req) => req.method === 'OPTIONS',
+    validate: {
+      trustProxy: false,
+      xForwardedForHeader: false,
+    }
+  });
 
-const authLimiter = createRateLimiter({
-  max: 5, // limit auth attempts
-  skipSuccessfulRequests: true,
-  message: 'Too many authentication attempts, please try again later.'
-});
-
-// Temporarily disable rate limiting to test
-// app.use('/api/', limiter);
-// app.use('/api/auth/', authLimiter);
+  app.use('/api/', limiter);
+  app.use('/api/auth/', authLimiter);
+}
 
 // Routes
 // Public routes
