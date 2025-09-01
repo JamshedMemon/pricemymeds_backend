@@ -76,8 +76,19 @@ app.use('/api/price-alerts', require('./routes/priceAlerts')); // Price alerts
 app.use('/api/blog', require('./routes/blog')); // Blog posts
 
 // Public endpoints for admin messages and subscriptions (for users)
-app.use('/api/admin-messages', require('./routes/adminMessages')); // Public endpoint for fetching messages
-app.use('/api/subscriptions', require('./routes/subscriptions')); // Public endpoint for subscribing
+try {
+  app.use('/api/admin-messages', require('./routes/adminMessages')); // Public endpoint for fetching messages
+  console.log('✅ AdminMessages routes loaded');
+} catch (error) {
+  console.error('❌ Error loading adminMessages routes:', error);
+}
+
+try {
+  app.use('/api/subscriptions', require('./routes/subscriptions')); // Public endpoint for subscribing
+  console.log('✅ Subscriptions routes loaded');
+} catch (error) {
+  console.error('❌ Error loading subscriptions routes:', error);
+}
 
 // Admin routes (all require authentication)
 try {
