@@ -10,6 +10,17 @@ const adminMessageSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  pharmacyId: {
+    type: String,
+    required: false, // Optional - if not set, message applies to all pharmacies
+    default: null,
+    index: true
+  },
+  pharmacyName: {
+    type: String,
+    required: false,
+    default: null
+  },
   category: {
     type: String,
     required: true,
@@ -57,6 +68,7 @@ const adminMessageSchema = new mongoose.Schema({
 
 // Index for efficient queries
 adminMessageSchema.index({ medicationId: 1, active: 1, category: 1 });
+adminMessageSchema.index({ medicationId: 1, pharmacyId: 1, active: 1 });
 adminMessageSchema.index({ startDate: 1, endDate: 1 });
 
 // Method to check if message is currently active

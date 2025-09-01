@@ -879,6 +879,8 @@ router.post('/admin-messages', async (req, res) => {
     const {
       medicationId,
       medicationName,
+      pharmacyId,
+      pharmacyName,
       category,
       title,
       message,
@@ -890,6 +892,8 @@ router.post('/admin-messages', async (req, res) => {
     const adminMessage = new AdminMessage({
       medicationId,
       medicationName,
+      pharmacyId: pharmacyId || null,
+      pharmacyName: pharmacyName || null,
       category,
       title,
       message,
