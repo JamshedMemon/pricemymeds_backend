@@ -65,6 +65,8 @@ app.use('/api/price-alerts', require('./routes/priceAlerts')); // Price alerts
 app.use('/api/blog', require('./routes/blog')); // Blog posts
 app.use('/api/admin/auth', require('./routes/adminAuth')); // Admin auth routes (login, etc.)
 app.use('/api/admin', require('./routes/admin')); // Protected admin routes
+app.use('/api/admin-messages', require('./routes/adminMessages')); // Admin messages for medications
+app.use('/api/subscriptions', require('./routes/subscriptions')); // Email subscriptions
 
 // Health check
 app.get('/health', (req, res) => {

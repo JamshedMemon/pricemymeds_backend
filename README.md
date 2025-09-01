@@ -44,7 +44,7 @@ npm install
 ```env
 MONGO_URI=mongodb://localhost:27017/pricemymeds
 JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
-PORT=5001
+PORT=3001
 NODE_ENV=development
 ```
 
@@ -53,7 +53,7 @@ NODE_ENV=development
 npm run dev
 ```
 
-The API will be available at `http://localhost:5001`
+The API will be available at `http://localhost:3001`
 
 ## Available Scripts
 
@@ -118,7 +118,7 @@ The API will be available at `http://localhost:5001`
 |----------|-------------|---------|
 | MONGO_URI | MongoDB connection string | Required |
 | JWT_SECRET | Secret key for JWT | Required |
-| PORT | Server port | 5001 |
+| PORT | Server port | 3001 |
 | NODE_ENV | Environment (development/production) | development |
 
 ## Admin Setup
