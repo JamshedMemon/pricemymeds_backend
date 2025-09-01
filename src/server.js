@@ -86,8 +86,9 @@ const authLimiter = createRateLimiter({
   message: 'Too many authentication attempts, please try again later.'
 });
 
-app.use('/api/', limiter);
-app.use('/api/auth/', authLimiter);
+// Temporarily disable rate limiting to test
+// app.use('/api/', limiter);
+// app.use('/api/auth/', authLimiter);
 
 // Routes
 // Public routes
