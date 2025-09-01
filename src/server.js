@@ -9,7 +9,8 @@ require('dotenv').config();
 const app = express();
 
 // Trust proxy - required for Render and other hosting platforms
-app.set('trust proxy', true);
+// This is critical for express-rate-limit to work behind proxies
+app.set('trust proxy', 1);
 
 // CORS configuration
 const corsOptions = {
@@ -53,23 +54,37 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === 'production' ? 100 : 1000, // More lenient in development
-  standardHeaders: true, // Return rate limit info in headers
-  legacyHeaders: false, // Disable X-RateLimit headers
-  // Skip rate limiting in development
-  skip: (req) => process.env.NODE_ENV !== 'production'
-});
+// Rate limiting - only apply in production
+const limiter = process.env.NODE_ENV === 'production' 
+  ? rateLimit({
+      windowMs: 15 * 60 * 1000, // 15 minutes
+      max: 100, // limit each IP to 100 requests per windowMs
+      standardHeaders: true, // Return rate limit info in headers
+      legacyHeaders: false, // Disable X-RateLimit headers
+      trustProxy: true, // Trust proxy headers
+      handler: (req, res) => {
+        res.status(429).json({
+          message: 'Too many requests, please try again later.'
+        });
+      }
+    })
+  : (req, res, next) => next(); // No rate limiting in development
 
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5, // limit auth attempts
-  standardHeaders: true,
-  legacyHeaders: false,
-  skip: (req) => process.env.NODE_ENV !== 'production'
-});
+const authLimiter = process.env.NODE_ENV === 'production'
+  ? rateLimit({
+      windowMs: 15 * 60 * 1000,
+      max: 5, // limit auth attempts
+      standardHeaders: true,
+      legacyHeaders: false,
+      trustProxy: true, // Trust proxy headers
+      skipSuccessfulRequests: true,
+      handler: (req, res) => {
+        res.status(429).json({
+          message: 'Too many authentication attempts, please try again later.'
+        });
+      }
+    })
+  : (req, res, next) => next(); // No rate limiting in development
 
 app.use('/api/', limiter);
 app.use('/api/auth/', authLimiter);
