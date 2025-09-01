@@ -917,10 +917,26 @@ router.post('/admin-messages', async (req, res) => {
 // PUT update admin message
 router.put('/admin-messages/:id', async (req, res) => {
   try {
-    const message = await AdminMessage.findByIdAndUpdate(
-      req.params.id,
-      { ...req.body, updatedAt: Date.now() },
-      { new: true }
+    // Use findOneAndUpdate with $set to ensure all fields are updated
+    const message = await AdminMessage.findOneAndUpdate(
+      { _id: req.params.id },
+      {
+        $set: {
+          medicationId: req.body.medicationId,
+          medicationName: req.body.medicationName,
+          pharmacyId: req.body.pharmacyId || null,
+          pharmacyName: req.body.pharmacyName || null,
+          category: req.body.category,
+          title: req.body.title,
+          message: req.body.message,
+          startDate: req.body.startDate,
+          endDate: req.body.endDate || null,
+          priority: req.body.priority,
+          active: req.body.active !== undefined ? req.body.active : true,
+          updatedAt: Date.now()
+        }
+      },
+      { new: true, runValidators: true }
     );
     
     if (!message) {

@@ -19,7 +19,7 @@ router.get('/medication/:medicationId', async (req, res) => {
       ]
     })
     .sort({ priority: -1, createdAt: -1 })
-    .select('-createdBy -__v');
+    .select('medicationId medicationName pharmacyId pharmacyName category title message active startDate endDate priority createdAt updatedAt');
     
     res.json(messages);
   } catch (error) {

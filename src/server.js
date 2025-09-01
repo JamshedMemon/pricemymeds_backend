@@ -127,25 +127,6 @@ app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-// Debug endpoint to check loaded routes
-app.get('/debug/routes', (req, res) => {
-  const routes = [];
-  app._router.stack.forEach(middleware => {
-    if (middleware.route) {
-      routes.push({
-        path: middleware.route.path,
-        methods: Object.keys(middleware.route.methods)
-      });
-    } else if (middleware.name === 'router') {
-      routes.push({
-        path: middleware.regexp.toString(),
-        type: 'router'
-      });
-    }
-  });
-  res.json({ routes, env: process.env.NODE_ENV });
-});
-
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
