@@ -81,10 +81,7 @@ app.use('/api/subscriptions', require('./routes/subscriptions')); // Public endp
 
 // Admin routes (all require authentication)
 app.use('/api/admin/auth', require('./routes/adminAuth')); // Admin auth routes (login, etc.)
-// Specific admin routes MUST come before the general admin router
-app.use('/api/admin/admin-messages', require('./routes/adminMessages')); // Admin management of messages
-app.use('/api/admin/subscriptions', require('./routes/subscriptions')); // Admin management of subscriptions
-app.use('/api/admin', require('./routes/admin')); // Protected admin routes - MUST BE LAST
+app.use('/api/admin', require('./routes/admin')); // Protected admin routes (includes messages & subscriptions)
 
 // Health check
 app.get('/health', (req, res) => {

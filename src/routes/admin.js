@@ -850,4 +850,200 @@ router.delete('/price-alerts/:id', requireRole('admin'), async (req, res) => {
   }
 });
 
+// ===== ADMIN MESSAGES MANAGEMENT =====
+const AdminMessage = require('../models/AdminMessage');
+
+// GET all admin messages
+router.get('/admin-messages', async (req, res) => {
+  try {
+    const { active, category, medicationId } = req.query;
+    const filter = {};
+    
+    if (active !== undefined) filter.active = active === 'true';
+    if (category) filter.category = category;
+    if (medicationId) filter.medicationId = medicationId;
+    
+    const messages = await AdminMessage.find(filter)
+      .sort({ priority: -1, createdAt: -1 });
+    
+    res.json(messages);
+  } catch (error) {
+    console.error('Error fetching admin messages:', error);
+    res.status(500).json({ message: 'Error fetching messages' });
+  }
+});
+
+// POST create admin message
+router.post('/admin-messages', async (req, res) => {
+  try {
+    const {
+      medicationId,
+      medicationName,
+      category,
+      title,
+      message,
+      startDate,
+      endDate,
+      priority
+    } = req.body;
+    
+    const adminMessage = new AdminMessage({
+      medicationId,
+      medicationName,
+      category,
+      title,
+      message,
+      startDate: startDate || Date.now(),
+      endDate: endDate || null,
+      priority: priority || 0,
+      active: true,
+      createdBy: req.user?._id
+    });
+    
+    await adminMessage.save();
+    await logAction(req, 'message_create', 'adminmessage', adminMessage._id);
+    
+    res.status(201).json(adminMessage);
+  } catch (error) {
+    console.error('Error creating message:', error);
+    res.status(500).json({ message: 'Error creating message' });
+  }
+});
+
+// PUT update admin message
+router.put('/admin-messages/:id', async (req, res) => {
+  try {
+    const message = await AdminMessage.findByIdAndUpdate(
+      req.params.id,
+      { ...req.body, updatedAt: Date.now() },
+      { new: true }
+    );
+    
+    if (!message) {
+      return res.status(404).json({ message: 'Message not found' });
+    }
+    
+    await logAction(req, 'message_update', 'adminmessage', message._id);
+    res.json(message);
+  } catch (error) {
+    console.error('Error updating message:', error);
+    res.status(500).json({ message: 'Error updating message' });
+  }
+});
+
+// PATCH toggle admin message active status
+router.patch('/admin-messages/:id/toggle', async (req, res) => {
+  try {
+    const message = await AdminMessage.findById(req.params.id);
+    
+    if (!message) {
+      return res.status(404).json({ message: 'Message not found' });
+    }
+    
+    message.active = !message.active;
+    await message.save();
+    
+    await logAction(req, 'message_toggle', 'adminmessage', message._id);
+    res.json(message);
+  } catch (error) {
+    console.error('Error toggling message:', error);
+    res.status(500).json({ message: 'Error toggling message status' });
+  }
+});
+
+// DELETE admin message
+router.delete('/admin-messages/:id', async (req, res) => {
+  try {
+    const message = await AdminMessage.findByIdAndDelete(req.params.id);
+    
+    if (!message) {
+      return res.status(404).json({ message: 'Message not found' });
+    }
+    
+    await logAction(req, 'message_delete', 'adminmessage', message._id);
+    res.json({ message: 'Message deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting message:', error);
+    res.status(500).json({ message: 'Error deleting message' });
+  }
+});
+
+// ===== EMAIL SUBSCRIPTIONS MANAGEMENT =====
+const EmailSubscription = require('../models/EmailSubscription');
+
+// GET all subscriptions
+router.get('/subscriptions', async (req, res) => {
+  try {
+    const { status, source } = req.query;
+    const filter = {};
+    
+    if (status) filter.status = status;
+    if (source) filter.source = source;
+    
+    const subscriptions = await EmailSubscription.find(filter)
+      .sort({ subscribedAt: -1 });
+    
+    // Calculate stats
+    const stats = {
+      total: await EmailSubscription.countDocuments(),
+      active: await EmailSubscription.countDocuments({ status: 'active' }),
+      unsubscribed: await EmailSubscription.countDocuments({ status: 'unsubscribed' }),
+      bounced: await EmailSubscription.countDocuments({ status: 'bounced' })
+    };
+    
+    res.json({ subscriptions, stats });
+  } catch (error) {
+    console.error('Error fetching subscriptions:', error);
+    res.status(500).json({ message: 'Error fetching subscriptions' });
+  }
+});
+
+// GET subscription stats
+router.get('/subscriptions/stats', async (req, res) => {
+  try {
+    const [total, active, unsubscribed, bounced, bySource, recentSubscriptions] = await Promise.all([
+      EmailSubscription.countDocuments(),
+      EmailSubscription.countDocuments({ status: 'active' }),
+      EmailSubscription.countDocuments({ status: 'unsubscribed' }),
+      EmailSubscription.countDocuments({ status: 'bounced' }),
+      EmailSubscription.aggregate([
+        { $group: { _id: '$source', count: { $sum: 1 } } }
+      ]),
+      EmailSubscription.find({ status: 'active' })
+        .sort({ subscribedAt: -1 })
+        .limit(5)
+        .select('email subscribedAt source')
+    ]);
+    
+    res.json({
+      total,
+      active,
+      unsubscribed,
+      bounced,
+      bySource,
+      recentSubscriptions
+    });
+  } catch (error) {
+    console.error('Error fetching subscription stats:', error);
+    res.status(500).json({ message: 'Error fetching statistics' });
+  }
+});
+
+// DELETE subscription
+router.delete('/subscriptions/:id', async (req, res) => {
+  try {
+    const subscription = await EmailSubscription.findByIdAndDelete(req.params.id);
+    
+    if (!subscription) {
+      return res.status(404).json({ message: 'Subscription not found' });
+    }
+    
+    await logAction(req, 'subscription_delete', 'subscription', subscription._id);
+    res.json({ message: 'Subscription deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting subscription:', error);
+    res.status(500).json({ message: 'Error deleting subscription' });
+  }
+});
+
 module.exports = router;
