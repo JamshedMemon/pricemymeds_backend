@@ -35,7 +35,11 @@ app.use(cors({
       return callback(new Error('Not allowed by CORS'));
     }
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Authorization'],
+  maxAge: 86400 // 24 hours
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -50,6 +54,9 @@ const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5 // limit auth attempts
 });
+
+// Handle preflight requests
+app.options('*', cors());
 
 app.use('/api/', limiter);
 app.use('/api/auth/', authLimiter);
