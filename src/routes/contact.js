@@ -3,6 +3,7 @@ const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const Contact = require('../models/Contact');
 const rateLimit = require('express-rate-limit');
+const emailService = require('../services/emailService');
 
 // Rate limiting for contact form (prevent spam)
 const contactLimiter = rateLimit({
@@ -36,6 +37,20 @@ router.post('/', contactLimiter, [
     });
 
     await contact.save();
+
+    // Send email notification
+    try {
+      await emailService.sendContactFormEmail({
+        name,
+        email,
+        subject,
+        message
+      });
+      console.log('Contact form email sent successfully');
+    } catch (emailError) {
+      console.error('Failed to send contact form email:', emailError);
+      // Don't fail the request if email fails, since data is saved in DB
+    }
 
     res.status(201).json({
       message: 'Thank you for contacting us. We will get back to you soon!',

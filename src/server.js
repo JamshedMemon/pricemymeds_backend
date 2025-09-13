@@ -7,6 +7,8 @@ const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const app = express();
+const priceAlertService = require('./services/priceAlertService');
+const weeklyDigestService = require('./services/weeklyDigestService');
 
 // Trust proxy - required for Render and other hosting platforms
 // Set to number of proxies between server and client (1 for Render)
@@ -97,6 +99,11 @@ app.use('/api/contact', require('./routes/contact')); // Contact form
 app.use('/api/price-alerts', require('./routes/priceAlerts')); // Price alerts
 app.use('/api/blog', require('./routes/blog')); // Blog posts
 
+// Test routes (development only)
+if (process.env.NODE_ENV !== 'production') {
+  app.use('/api/test', require('./routes/testEmail'));
+}
+
 // Public endpoints for admin messages and subscriptions (for users)
 try {
   app.use('/api/admin-messages', require('./routes/adminMessages')); // Public endpoint for fetching messages
@@ -145,6 +152,14 @@ app.use((req, res) => {
 mongoose.connect(process.env.MONGO_URI)
   .then(() => {
     console.log('✅ Connected to MongoDB Atlas');
+    
+    // Start price alert monitoring cron job
+    priceAlertService.startCronJob();
+    console.log('✅ Price alert monitoring started');
+    
+    // Start weekly digest cron job
+    weeklyDigestService.startCronJob();
+    console.log('✅ Weekly digest service started');
     
     const PORT = process.env.PORT || 5000;
     app.listen(PORT, () => {

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const EmailSubscription = require('../models/EmailSubscription');
 const { verifyToken, requireRole } = require('../middleware/auth');
+const emailService = require('../services/emailService');
 
 // Subscribe endpoint (public)
 router.post('/subscribe', async (req, res) => {
@@ -226,6 +227,165 @@ router.delete('/:id', verifyToken, requireRole(['admin']), async (req, res) => {
   } catch (error) {
     console.error('Error deleting subscription:', error);
     res.status(500).json({ message: 'Error deleting subscription' });
+  }
+});
+
+// Send newsletter to all active subscribers (admin only)
+router.post('/send-newsletter', verifyToken, requireRole(['admin']), async (req, res) => {
+  try {
+    const { 
+      subject, 
+      heading, 
+      content, 
+      medications = [], 
+      footer,
+      testMode = false,
+      testEmail 
+    } = req.body;
+    
+    if (!content) {
+      return res.status(400).json({ message: 'Newsletter content is required' });
+    }
+    
+    let subscribers;
+    
+    if (testMode) {
+      // Test mode: send only to specified email or admin email
+      const email = testEmail || process.env.ADMIN_EMAIL || process.env.ZOHO_EMAIL;
+      subscribers = [{
+        email,
+        unsubscribeToken: 'test-token'
+      }];
+      console.log(`Test mode: Sending newsletter to ${email}`);
+    } else {
+      // Production mode: send to all active subscribers
+      subscribers = await EmailSubscription.find({ 
+        status: 'active',
+        'preferences.weeklyDigest': true 
+      }).select('email unsubscribeToken');
+      
+      if (subscribers.length === 0) {
+        return res.status(404).json({ 
+          message: 'No active subscribers found with newsletter preference enabled' 
+        });
+      }
+    }
+    
+    // Send newsletter
+    const results = await emailService.sendBulkNewsletter(subscribers, {
+      subject,
+      heading,
+      content,
+      medications,
+      footer
+    });
+    
+    // Update last email sent for subscribers
+    if (!testMode && results.sent.length > 0) {
+      await EmailSubscription.updateMany(
+        { email: { $in: results.sent } },
+        { 
+          $set: { lastEmailSent: new Date() },
+          $inc: { emailsSentCount: 1 }
+        }
+      );
+    }
+    
+    res.json({
+      message: testMode ? 'Test newsletter sent successfully' : 'Newsletter sent successfully',
+      results: {
+        sent: results.sent.length,
+        failed: results.failed.length,
+        total: results.total,
+        failedEmails: results.failed
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error sending newsletter:', error);
+    res.status(500).json({ message: 'Error sending newsletter', error: error.message });
+  }
+});
+
+// Send custom email to specific subscribers (admin only)
+router.post('/send-custom-email', verifyToken, requireRole(['admin']), async (req, res) => {
+  try {
+    const { 
+      emails, 
+      subject, 
+      heading, 
+      content, 
+      medications = [], 
+      footer 
+    } = req.body;
+    
+    if (!emails || emails.length === 0) {
+      return res.status(400).json({ message: 'Email addresses are required' });
+    }
+    
+    if (!content) {
+      return res.status(400).json({ message: 'Email content is required' });
+    }
+    
+    // Get subscriber details for the specified emails
+    const subscribers = await EmailSubscription.find({ 
+      email: { $in: emails },
+      status: 'active'
+    }).select('email unsubscribeToken');
+    
+    if (subscribers.length === 0) {
+      return res.status(404).json({ 
+        message: 'No active subscribers found with the specified email addresses' 
+      });
+    }
+    
+    // Send email
+    const results = await emailService.sendBulkNewsletter(subscribers, {
+      subject,
+      heading,
+      content,
+      medications,
+      footer
+    });
+    
+    // Update last email sent
+    if (results.sent.length > 0) {
+      await EmailSubscription.updateMany(
+        { email: { $in: results.sent } },
+        { 
+          $set: { lastEmailSent: new Date() },
+          $inc: { emailsSentCount: 1 }
+        }
+      );
+    }
+    
+    res.json({
+      message: 'Custom email sent successfully',
+      results: {
+        sent: results.sent.length,
+        failed: results.failed.length,
+        total: results.total,
+        failedEmails: results.failed
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error sending custom email:', error);
+    res.status(500).json({ message: 'Error sending custom email', error: error.message });
+  }
+});
+
+// Get email campaign history (admin only) - for future implementation
+router.get('/campaigns', verifyToken, requireRole(['admin']), async (req, res) => {
+  try {
+    // This would fetch from a campaigns collection if you want to track sent newsletters
+    res.json({
+      message: 'Campaign history feature coming soon',
+      campaigns: []
+    });
+  } catch (error) {
+    console.error('Error fetching campaigns:', error);
+    res.status(500).json({ message: 'Error fetching campaigns' });
   }
 });
 
