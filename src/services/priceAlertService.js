@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const PriceAlert = require('../models/PriceAlert');
 const Price = require('../models/Price');
+const Pharmacy = require('../models/Pharmacy');
 const emailService = require('./emailService');
 
 class PriceAlertService {
@@ -32,20 +33,31 @@ class PriceAlertService {
           // Get current lowest price for the medication
           const lowestPrice = await Price.findOne({
             medicationId: alert.medicationId,
-            ...(alert.dosage && { dosage: alert.dosage })
-          }).sort({ price: 1 }).populate('pharmacyId');
+            ...(alert.dosage && { dosage: alert.dosage }),
+            inStock: true,  // Only consider in-stock items
+            price: { $gt: 0 }  // Ensure price is greater than 0
+          }).sort({ price: 1 });
 
           if (!lowestPrice) {
-            console.log(`No price found for medication ${alert.medicationId}`);
+            console.log(`No valid price found for medication ${alert.medicationId} (${alert.medicationName}) with dosage: ${alert.dosage || 'any'}`);
             continue;
           }
 
-          const currentPrice = lowestPrice.price;
-          console.log(`Checking alert for ${alert.medicationName}: Target £${alert.targetPrice}, Current £${currentPrice}`);
+          // Validate price data
+          if (!lowestPrice.price || lowestPrice.price <= 0) {
+            console.log(`Invalid price (${lowestPrice.price}) found for alert ${alert._id}, skipping...`);
+            continue;
+          }
 
-          // Check if price has dropped to or below target
-          if (currentPrice <= alert.targetPrice) {
-            console.log(`Price alert triggered for ${alert.email} - ${alert.medicationName}`);
+          // Get pharmacy details separately since populate doesn't work with string IDs
+          const pharmacy = await Pharmacy.findOne({ id: lowestPrice.pharmacyId });
+
+          const currentPrice = lowestPrice.price;
+          console.log(`Checking alert for ${alert.medicationName}: Target £${alert.targetPrice}, Current £${currentPrice}, Pharmacy: ${pharmacy?.name || 'Unknown'}`);
+
+          // Check if price has dropped to or below target (with additional validation)
+          if (currentPrice > 0 && currentPrice <= alert.targetPrice) {
+            console.log(`Price alert triggered for ${alert.email} - ${alert.medicationName} at £${currentPrice}`);
 
             // Send email notification
             const emailResult = await emailService.sendPriceAlertEmail(
@@ -54,8 +66,8 @@ class PriceAlertService {
                 medicationName: alert.medicationName,
                 dosage: alert.dosage,
                 targetPrice: alert.targetPrice,
-                lowestPharmacy: lowestPrice.pharmacyId ? {
-                  name: lowestPrice.pharmacyId.name,
+                lowestPharmacy: pharmacy ? {
+                  name: pharmacy.name,
                   price: currentPrice
                 } : null
               },
@@ -74,13 +86,14 @@ class PriceAlertService {
           } else {
             // Update current price for reference
             alert.currentPrice = currentPrice;
-            if (lowestPrice.pharmacyId) {
+            if (pharmacy) {
               alert.lowestPharmacy = {
-                name: lowestPrice.pharmacyId.name,
+                name: pharmacy.name,
                 price: currentPrice
               };
             }
             await alert.save();
+            console.log(`Alert not triggered for ${alert.medicationName}: Current £${currentPrice} > Target £${alert.targetPrice}`);
           }
         } catch (error) {
           console.error(`Error processing alert ${alert._id}:`, error);
