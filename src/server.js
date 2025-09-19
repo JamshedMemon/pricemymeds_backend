@@ -156,10 +156,14 @@ mongoose.connect(process.env.MONGO_URI)
     // Start price alert monitoring cron job
     priceAlertService.startCronJob();
     console.log('✅ Price alert monitoring started');
-    
-    // Start weekly digest cron job
-    weeklyDigestService.startCronJob();
-    console.log('✅ Weekly digest service started');
+
+    // Start weekly digest cron job (only if not disabled)
+    if (process.env.DISABLE_WEEKLY_DIGEST === 'true') {
+      console.log('⏸️  Weekly digest service disabled via environment variable');
+    } else {
+      weeklyDigestService.startCronJob();
+      console.log('✅ Weekly digest service started');
+    }
     
     const PORT = process.env.PORT || 5000;
     app.listen(PORT, () => {
