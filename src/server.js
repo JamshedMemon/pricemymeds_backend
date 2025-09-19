@@ -123,6 +123,7 @@ try {
 try {
   app.use('/api/admin/auth', require('./routes/adminAuth')); // Admin auth routes (login, etc.)
   app.use('/api/admin', require('./routes/admin')); // Protected admin routes (includes messages & subscriptions)
+  app.use('/api/admin/email', require('./routes/adminEmail')); // Admin email campaign routes
   console.log('✅ Admin routes loaded successfully');
 } catch (error) {
   console.error('❌ Error loading admin routes:', error);
